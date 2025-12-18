@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "BREATHE_VR.slnx"
+    "dotnet.defaultSolution": "Breathe_VR.slnx"
 }
