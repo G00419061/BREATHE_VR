@@ -147,6 +147,8 @@ PlayerSettings:
   preloadedAssets:
   - {fileID: 0}
   - {fileID: 11400000, guid: 908d62378b8205449861e5838a18a596, type: 2}
+  - {fileID: -1061985669535203489, guid: 4b3de149e50ea0c4f8ad04c79b9f12ec, type: 2}
+  - {fileID: 11400000, guid: cbae2701f8c148a4794d35202a9ad9c4, type: 2}
   - {fileID: 9142428906010508068, guid: 3c4044c9e77a5104490d8d7677bc3607, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -595,6 +597,9 @@ PlayerSettings:
   - m_BuildTarget: WebGLSupport
     m_APIs: 0b000000
     m_Automatic: 1
+  - m_BuildTarget: WindowsStandaloneSupport
+    m_APIs: 02000000
+    m_Automatic: 0
   m_BuildTargetVRSettings:
   - m_BuildTarget: Standalone
     m_Enabled: 0
