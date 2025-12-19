@@ -1,8 +1,12 @@
 using UnityEngine;
+using System;
 using System.Collections;
 
 public class ArmStretchSequence : MonoBehaviour
 {
+    // 🔔 Broadcast when fully finished
+    public static event Action OnArmStretchFinished;
+
     [Header("Position")]
     public Vector3 startLocalPosition;
     public Vector3 endLocalPosition;
@@ -60,6 +64,9 @@ public class ArmStretchSequence : MonoBehaviour
             returnDuration,
             returnDuration
         );
+
+        // 🔔 BROADCAST FINISH
+        OnArmStretchFinished?.Invoke();
     }
 
     IEnumerator MoveAndScale(
