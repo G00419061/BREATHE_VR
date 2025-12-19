@@ -1,13 +1,12 @@
 using UnityEngine;
-using System;
 using System.Collections;
 
 public class InhaleExhaleSequence : MonoBehaviour
 {
-    public static event Action OnInhaleExhaleFinished;
-    public static bool HasFinished = false;
+    // 🔔 Fired when the whole sequence is finished
+    public static System.Action OnInhaleExhaleFinished;
 
-    [Header("Position")]
+    [Header("Local Position")]
     public Vector3 startLocalPosition;
     public Vector3 endLocalPosition;
 
@@ -18,66 +17,72 @@ public class InhaleExhaleSequence : MonoBehaviour
     [Header("Timing")]
     public float moveDuration = 0.5f;
     public float scaleDuration = 0.5f;
-    public float returnDuration = 0.4f;
+    public float returnDuration = 0.5f;
 
     [Header("Animation")]
     public Animator animator;
-    public string animationStateName = "InhaleExhale";
+    public string triggerName = "PlayInhaleExhale";
+    public string stateName = "InhaleExhale"; // must match Animator state name exactly
+
+    private bool started = false;
 
     void Awake()
     {
+        // Force hidden start state
         transform.localPosition = startLocalPosition;
         transform.localScale = startScale;
-        animator.enabled = false;
-        HasFinished = false;
     }
 
-    void OnEnable()
+    void Start()
     {
-        StartCoroutine(PlaySequence());
+        // ▶ Play automatically on scene start
+        if (started) return;
+        started = true;
+        StartCoroutine(Sequence());
     }
 
-    IEnumerator PlaySequence()
+    IEnumerator Sequence()
     {
+        // Move + scale in
         yield return MoveAndScale(startLocalPosition, endLocalPosition, startScale, endScale, moveDuration, scaleDuration);
 
-        animator.enabled = true;
-        yield return null;
-        animator.Play(animationStateName, 0, 0f);
+        // Trigger animation
+        animator.SetTrigger(triggerName);
 
-        yield return WaitForAnimation();
+        // Wait until animation state is entered
+        while (!animator.GetCurrentAnimatorStateInfo(0).IsName(stateName))
+            yield return null;
 
+        // Wait full animation length
+        yield return new WaitForSeconds(animator.GetCurrentAnimatorStateInfo(0).length);
+
+        // Move + scale back
         yield return MoveAndScale(endLocalPosition, startLocalPosition, endScale, startScale, returnDuration, returnDuration);
 
-        animator.enabled = false;
-
-        HasFinished = true;
+        // 🔔 Broadcast finished
+        Debug.Log("InhaleExhale FINISHED");
         OnInhaleExhaleFinished?.Invoke();
     }
 
     IEnumerator MoveAndScale(Vector3 pFrom, Vector3 pTo, Vector3 sFrom, Vector3 sTo, float pDur, float sDur)
     {
+        float duration = Mathf.Max(pDur, sDur);
         float t = 0f;
-        float d = Mathf.Max(pDur, sDur);
 
-        while (t < d)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            transform.localPosition = Vector3.Lerp(pFrom, pTo, t / pDur);
-            transform.localScale = Vector3.Lerp(sFrom, sTo, t / sDur);
+
+            float pt = pDur <= 0f ? 1f : Mathf.Clamp01(t / pDur);
+            float st = sDur <= 0f ? 1f : Mathf.Clamp01(t / sDur);
+
+            transform.localPosition = Vector3.Lerp(pFrom, pTo, pt);
+            transform.localScale = Vector3.Lerp(sFrom, sTo, st);
+
             yield return null;
         }
 
         transform.localPosition = pTo;
         transform.localScale = sTo;
-    }
-
-    IEnumerator WaitForAnimation()
-    {
-        while (!animator.GetCurrentAnimatorStateInfo(0).IsName(animationStateName))
-            yield return null;
-
-        while (animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f)
-            yield return null;
     }
 }

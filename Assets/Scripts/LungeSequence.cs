@@ -1,13 +1,12 @@
 using UnityEngine;
-using System;
 using System.Collections;
 
 public class LungeSequence : MonoBehaviour
 {
-    public static event Action OnLungeFinished;
-    public static bool HasFinished = false;
+    // 🔔 Fired when Lunge fully finishes
+    public static System.Action OnLungeFinished;
 
-    [Header("Position")]
+    [Header("Local Position")]
     public Vector3 startLocalPosition;
     public Vector3 endLocalPosition;
 
@@ -18,26 +17,24 @@ public class LungeSequence : MonoBehaviour
     [Header("Timing")]
     public float moveDuration = 0.6f;
     public float scaleDuration = 0.6f;
-    public float returnDuration = 0.4f;
+    public float returnDuration = 0.5f;
 
     [Header("Animation")]
     public Animator animator;
-    public string animationStateName = "Lunge";
+    public string triggerName = "PlayLunge";
+    public string stateName = "Lunge";
+
+    private bool started = false;
 
     void Awake()
     {
         transform.localPosition = startLocalPosition;
         transform.localScale = startScale;
-        animator.enabled = false;
-        HasFinished = false;
     }
 
     void OnEnable()
     {
-        if (InhaleExhaleSequence.HasFinished)
-            StartSequence();
-        else
-            InhaleExhaleSequence.OnInhaleExhaleFinished += StartSequence;
+        InhaleExhaleSequence.OnInhaleExhaleFinished += StartSequence;
     }
 
     void OnDisable()
@@ -47,50 +44,78 @@ public class LungeSequence : MonoBehaviour
 
     void StartSequence()
     {
-        StartCoroutine(PlaySequence());
+        if (started) return;
+        started = true;
+
+        Debug.Log("Lunge STARTED");
+        StartCoroutine(Sequence());
     }
 
-    IEnumerator PlaySequence()
+    IEnumerator Sequence()
     {
-        yield return MoveAndScale(startLocalPosition, endLocalPosition, startScale, endScale, moveDuration, scaleDuration);
+        // Move + scale in
+        yield return MoveAndScale(
+            startLocalPosition,
+            endLocalPosition,
+            startScale,
+            endScale,
+            moveDuration,
+            scaleDuration
+        );
 
-        animator.enabled = true;
-        yield return null;
-        animator.Play(animationStateName, 0, 0f);
+        // Play animation
+        animator.SetTrigger(triggerName);
 
-        yield return WaitForAnimation();
+        // Wait until animation state entered
+        while (!animator.GetCurrentAnimatorStateInfo(0).IsName(stateName))
+            yield return null;
 
-        yield return MoveAndScale(endLocalPosition, startLocalPosition, endScale, startScale, returnDuration, returnDuration);
+        // Wait full animation
+        yield return new WaitForSeconds(
+            animator.GetCurrentAnimatorStateInfo(0).length
+        );
 
-        animator.enabled = false;
+        // Move + scale back
+        yield return MoveAndScale(
+            endLocalPosition,
+            startLocalPosition,
+            endScale,
+            startScale,
+            returnDuration,
+            returnDuration
+        );
 
-        HasFinished = true;
+        Debug.Log("Lunge FINISHED");
         OnLungeFinished?.Invoke();
     }
 
-    IEnumerator MoveAndScale(Vector3 pFrom, Vector3 pTo, Vector3 sFrom, Vector3 sTo, float pDur, float sDur)
+    // ✅ ONLY ONE MoveAndScale EXISTS
+    IEnumerator MoveAndScale(
+        Vector3 pFrom,
+        Vector3 pTo,
+        Vector3 sFrom,
+        Vector3 sTo,
+        float pDur,
+        float sDur
+    )
     {
+        float duration = Mathf.Max(pDur, sDur);
         float t = 0f;
-        float d = Mathf.Max(pDur, sDur);
 
-        while (t < d)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            transform.localPosition = Vector3.Lerp(pFrom, pTo, t / pDur);
-            transform.localScale = Vector3.Lerp(sFrom, sTo, t / sDur);
+
+            float pt = Mathf.Clamp01(t / pDur);
+            float st = Mathf.Clamp01(t / sDur);
+
+            transform.localPosition = Vector3.Lerp(pFrom, pTo, pt);
+            transform.localScale = Vector3.Lerp(sFrom, sTo, st);
+
             yield return null;
         }
 
         transform.localPosition = pTo;
         transform.localScale = sTo;
-    }
-
-    IEnumerator WaitForAnimation()
-    {
-        while (!animator.GetCurrentAnimatorStateInfo(0).IsName(animationStateName))
-            yield return null;
-
-        while (animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f)
-            yield return null;
     }
 }
