@@ -3,12 +3,15 @@ using System.Collections;
 
 public class CrescentLungeSequence : MonoBehaviour
 {
+    // 🔔 EVENT: Fired when CrescentLunge is 100% finished
+    public static System.Action OnCrescentLungeFinished;
+
     [Header("Local Position")]
     public Vector3 startLocalPosition;
     public Vector3 endLocalPosition;
 
     [Header("Scale")]
-    public Vector3 startScale = Vector3.one * 0.01f; // NEVER ZERO
+    public Vector3 startScale = Vector3.one * 0.01f; // never zero
     public Vector3 endScale = Vector3.one;
 
     [Header("Timing")]
@@ -17,24 +20,22 @@ public class CrescentLungeSequence : MonoBehaviour
     public float returnDuration = 0.4f;
 
     [Header("Animation")]
-    public Animator animator; // MUST be Armature Simple Human
+    public Animator animator; // Generic → must be on CrescentLunge root
     public string triggerName = "PlayCrescentLunge";
     public string animationStateName = "CrescentLunge";
 
-    bool hasStarted = false;
+    private bool hasStarted = false;
 
     void Awake()
     {
+        // Force hidden start state
         transform.localPosition = startLocalPosition;
         transform.localScale = startScale;
-
-        Debug.Log("CrescentLunge Awake()");
-        Debug.Log($"Animator assigned? {animator != null}");
     }
 
     void OnEnable()
     {
-        Debug.Log("CrescentLunge OnEnable() — waiting for ArmStretch");
+        // 🔒 Wait for ArmStretch to finish
         ArmStretchSequence.OnArmStretchFinished += StartSequence;
     }
 
@@ -45,22 +46,14 @@ public class CrescentLungeSequence : MonoBehaviour
 
     void StartSequence()
     {
-        Debug.Log("CrescentLunge StartSequence() CALLED");
-
-        if (hasStarted)
-        {
-            Debug.Log("CrescentLunge already started — ignoring");
-            return;
-        }
-
+        if (hasStarted) return;
         hasStarted = true;
+
         StartCoroutine(PlaySequence());
     }
 
     IEnumerator PlaySequence()
     {
-        Debug.Log("CrescentLunge PlaySequence STARTED");
-
         // Move + scale in
         yield return MoveAndScale(
             startLocalPosition,
@@ -71,22 +64,11 @@ public class CrescentLungeSequence : MonoBehaviour
             scaleDuration
         );
 
-        Debug.Log("CrescentLunge MOVE+SCALE COMPLETE");
-
-        // Trigger animation
+        // Play animation
         animator.SetTrigger(triggerName);
-        Debug.Log($"Trigger SENT: {triggerName}");
 
-        yield return null; // wait 1 frame
-
-        AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
-        Debug.Log($"After trigger — InState({animationStateName}) = {state.IsName(animationStateName)}");
-        Debug.Log($"State normalizedTime = {state.normalizedTime}");
-
-        // Wait for animation
+        // Wait for animation to complete
         yield return WaitForAnimation();
-
-        Debug.Log("CrescentLunge ANIMATION FINISHED");
 
         // Move + scale back
         yield return MoveAndScale(
@@ -98,7 +80,8 @@ public class CrescentLungeSequence : MonoBehaviour
             returnDuration
         );
 
-        Debug.Log("CrescentLunge RETURN COMPLETE");
+        // 🔔 BROADCAST FINISH
+        OnCrescentLungeFinished?.Invoke();
     }
 
     IEnumerator MoveAndScale(
@@ -129,13 +112,11 @@ public class CrescentLungeSequence : MonoBehaviour
 
     IEnumerator WaitForAnimation()
     {
-        Debug.Log("Waiting for CrescentLunge state...");
-
+        // Wait until Animator enters CrescentLunge
         while (!animator.GetCurrentAnimatorStateInfo(0).IsName(animationStateName))
             yield return null;
 
-        Debug.Log("CrescentLunge STATE ENTERED");
-
+        // Wait until animation completes
         while (animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f)
             yield return null;
     }

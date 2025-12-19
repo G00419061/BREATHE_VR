@@ -3810,7 +3810,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: daf708876a70938458b0f9876b5397b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WayPointFollow
-  waypoints: []
+  waypoints:
+  - {fileID: 309400046}
   speed: 10
   rotSpeed: 10
   lookAhead: 10

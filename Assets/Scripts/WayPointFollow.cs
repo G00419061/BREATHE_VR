@@ -10,17 +10,46 @@ public class WayPointFollow : MonoBehaviour
     private int currentWP = 0;
     private GameObject tracker;
 
-    private Quaternion originalRotation;          // store original rotation
-    private bool returningToOriginalRotation = false; // flag for final rotation
+    private Quaternion originalRotation;
+    private bool returningToOriginalRotation = false;
+
+    // 🔒 LOCK MOVEMENT UNTIL A LUNGE FINISHES
+    private bool canMove = false;
+
+    void Awake()
+    {
+        originalRotation = transform.rotation;
+    }
+
+    void OnEnable()
+    {
+        // 🔔 LISTEN TO BOTH
+        TwistLungeSequence.OnTwistLungeFinished += EnableMovement;
+        CrescentLungeSequence.OnCrescentLungeFinished += EnableMovement;
+    }
+
+    void OnDisable()
+    {
+        TwistLungeSequence.OnTwistLungeFinished -= EnableMovement;
+        CrescentLungeSequence.OnCrescentLungeFinished -= EnableMovement;
+    }
 
     void Start()
     {
-        // Save the original facing direction of RobotRoot
-        originalRotation = transform.rotation;
-
-        // Create tracker object
         tracker = new GameObject("Tracker");
         tracker.transform.position = transform.position;
+    }
+
+    void EnableMovement()
+    {
+        if (canMove) return; // prevent double-trigger
+
+        Debug.Log("WayPointFollow ENABLED");
+        canMove = true;
+
+        // Optional safety: stop listening once enabled
+        TwistLungeSequence.OnTwistLungeFinished -= EnableMovement;
+        CrescentLungeSequence.OnCrescentLungeFinished -= EnableMovement;
     }
 
     void ProgressTracker()
@@ -30,32 +59,30 @@ public class WayPointFollow : MonoBehaviour
 
         Vector3 targetPos = new Vector3(
             waypoints[currentWP].transform.position.x,
-            transform.position.y,  // lock to robot’s height
+            transform.position.y,
             waypoints[currentWP].transform.position.z
         );
 
         float distToWP = Vector3.Distance(transform.position, targetPos);
 
-        // Move tracker toward next waypoint
         tracker.transform.LookAt(targetPos);
         tracker.transform.position += tracker.transform.forward * lookAhead * Time.deltaTime;
 
-        // Advance to next waypoint
         if (distToWP < 1f)
         {
             currentWP++;
 
-            // If we have reached the last waypoint
             if (currentWP >= waypoints.Length)
-            {
-                returningToOriginalRotation = true; // begin rotation back to start
-            }
+                returningToOriginalRotation = true;
         }
     }
 
     void Update()
     {
-        // If we reached last waypoint → rotate back to original facing direction
+        // 🚫 WAIT until TwistLunge OR CrescentLunge finishes
+        if (!canMove)
+            return;
+
         if (returningToOriginalRotation)
         {
             transform.rotation = Quaternion.Slerp(
@@ -63,8 +90,7 @@ public class WayPointFollow : MonoBehaviour
                 originalRotation,
                 rotSpeed * Time.deltaTime
             );
-
-            return; // stop all movement
+            return;
         }
 
         if (currentWP >= waypoints.Length)
@@ -75,15 +101,17 @@ public class WayPointFollow : MonoBehaviour
         if (currentWP >= waypoints.Length)
             return;
 
-        // Smooth rotate toward tracker
         Quaternion look = Quaternion.LookRotation(tracker.transform.position - transform.position);
         float angle = Quaternion.Angle(transform.rotation, look);
 
         float dynamicRotSpeed = Mathf.Lerp(rotSpeed * 0.5f, rotSpeed, angle / 45f);
 
-        transform.rotation = Quaternion.Slerp(transform.rotation, look, dynamicRotSpeed * Time.deltaTime);
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            look,
+            dynamicRotSpeed * Time.deltaTime
+        );
 
-        // Movement forward
         transform.Translate(0, 0, speed * Time.deltaTime);
     }
 }
