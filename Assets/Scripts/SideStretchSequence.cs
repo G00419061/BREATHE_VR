@@ -4,7 +4,6 @@ using System.Collections;
 
 public class SideStretchSequence : MonoBehaviour
 {
-    // 🔔 Broadcast when fully finished
     public static event Action OnSideStretchFinished;
 
     [Header("Position")]
@@ -25,87 +24,57 @@ public class SideStretchSequence : MonoBehaviour
     public string triggerName = "PlaySideStretch";
     public string animationStateName = "SideStretch";
 
+    private bool started = false;
+
     void Awake()
     {
-        // Force start state
         transform.localPosition = startLocalPosition;
         transform.localScale = startScale;
     }
 
     void OnEnable()
     {
+        if (started) return;
+        started = true;
         StartCoroutine(PlaySequence());
     }
 
     IEnumerator PlaySequence()
     {
-        // Move + scale to end
-        yield return MoveAndScale(
-            startLocalPosition,
-            endLocalPosition,
-            startScale,
-            endScale,
-            moveDuration,
-            scaleDuration
-        );
+        yield return MoveAndScale(startLocalPosition, endLocalPosition, startScale, endScale, moveDuration, scaleDuration);
 
-        // Play animation
         animator.SetTrigger(triggerName);
 
-        // Wait for animation to complete
         yield return WaitForAnimation();
 
-        // Return to start position + scale
-        yield return MoveAndScale(
-            endLocalPosition,
-            startLocalPosition,
-            endScale,
-            startScale,
-            returnDuration,
-            returnDuration
-        );
+        yield return MoveAndScale(endLocalPosition, startLocalPosition, endScale, startScale, returnDuration, returnDuration);
 
-        // 🔔 BROADCAST FINISH
+        Debug.Log("SideStretch FINISHED");
         OnSideStretchFinished?.Invoke();
     }
 
-    IEnumerator MoveAndScale(
-        Vector3 posFrom,
-        Vector3 posTo,
-        Vector3 scaleFrom,
-        Vector3 scaleTo,
-        float posDuration,
-        float scaleDuration
-    )
+    IEnumerator MoveAndScale(Vector3 pFrom, Vector3 pTo, Vector3 sFrom, Vector3 sTo, float pDur, float sDur)
     {
-        float duration = Mathf.Max(posDuration, scaleDuration);
+        float dur = Mathf.Max(pDur, sDur);
         float t = 0f;
 
-        while (t < duration)
+        while (t < dur)
         {
             t += Time.deltaTime;
-
-            float posT = Mathf.Clamp01(t / posDuration);
-            float scaleT = Mathf.Clamp01(t / scaleDuration);
-
-            transform.localPosition = Vector3.Lerp(posFrom, posTo, posT);
-            transform.localScale = Vector3.Lerp(scaleFrom, scaleTo, scaleT);
-
+            transform.localPosition = Vector3.Lerp(pFrom, pTo, Mathf.Clamp01(t / pDur));
+            transform.localScale = Vector3.Lerp(sFrom, sTo, Mathf.Clamp01(t / sDur));
             yield return null;
         }
 
-        transform.localPosition = posTo;
-        transform.localScale = scaleTo;
+        transform.localPosition = pTo;
+        transform.localScale = sTo;
     }
 
     IEnumerator WaitForAnimation()
     {
-        // Wait for correct state
         while (!animator.GetCurrentAnimatorStateInfo(0).IsName(animationStateName))
             yield return null;
 
-        // Wait until animation finishes
-        while (animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f)
-            yield return null;
+        yield return new WaitForSeconds(animator.GetCurrentAnimatorStateInfo(0).length);
     }
 }

@@ -13,7 +13,7 @@ public class WayPointFollow : MonoBehaviour
     private Quaternion originalRotation;
     private bool returningToOriginalRotation = false;
 
-    // 🔒 LOCK MOVEMENT UNTIL CRESCENT LUNGE FINISHES
+    // 🔒 LOCK MOVEMENT UNTIL A LUNGE FINISHES
     private bool canMove = false;
 
     void Awake()
@@ -23,11 +23,14 @@ public class WayPointFollow : MonoBehaviour
 
     void OnEnable()
     {
+        // 🔔 LISTEN TO BOTH
+        TwistLungeSequence.OnTwistLungeFinished += EnableMovement;
         CrescentLungeSequence.OnCrescentLungeFinished += EnableMovement;
     }
 
     void OnDisable()
     {
+        TwistLungeSequence.OnTwistLungeFinished -= EnableMovement;
         CrescentLungeSequence.OnCrescentLungeFinished -= EnableMovement;
     }
 
@@ -39,8 +42,14 @@ public class WayPointFollow : MonoBehaviour
 
     void EnableMovement()
     {
+        if (canMove) return; // prevent double-trigger
+
         Debug.Log("WayPointFollow ENABLED");
         canMove = true;
+
+        // Optional safety: stop listening once enabled
+        TwistLungeSequence.OnTwistLungeFinished -= EnableMovement;
+        CrescentLungeSequence.OnCrescentLungeFinished -= EnableMovement;
     }
 
     void ProgressTracker()
@@ -64,19 +73,16 @@ public class WayPointFollow : MonoBehaviour
             currentWP++;
 
             if (currentWP >= waypoints.Length)
-            {
                 returningToOriginalRotation = true;
-            }
         }
     }
 
     void Update()
     {
-        // 🚫 DO NOTHING until CrescentLunge finishes
+        // 🚫 WAIT until TwistLunge OR CrescentLunge finishes
         if (!canMove)
             return;
 
-        // Rotate back to original facing when done
         if (returningToOriginalRotation)
         {
             transform.rotation = Quaternion.Slerp(
